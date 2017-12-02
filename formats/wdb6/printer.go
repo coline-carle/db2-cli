@@ -10,6 +10,7 @@ var (
 	fieldNameColor = color.New(color.FgCyan).Add(color.Bold)
 	fieldColor     = color.New()
 	noteColor      = color.New(color.FgYellow)
+	titleColor     = color.New(color.FgRed).Add(color.Bold)
 )
 
 func formatDecValue(value uint) string {
@@ -38,11 +39,32 @@ func printFlags(h *Header) {
 
 	_, _ = fieldNameColor.Print("Flags: ")
 	_, _ = fieldColor.Printf("%s  ", hexValue)
-	_, _ = noteColor.Printf("(%s)\n", strings.Join(flags, ", "))
+	if len(flags) > 0 {
+		_, _ = noteColor.Printf("(%s)", strings.Join(flags, ", "))
+	}
+
+	fmt.Printf("\n")
 }
 
-// Print WDB6 header
-func (header *Header) Print() {
+func printFieldSize(size uint) {
+	fieldNameColor.Print("Size: ")
+	fieldColor.Print(fmt.Sprintf("%d B\n", size))
+}
+
+// PrintFieldsFormat print field formats
+func PrintFieldsFormat(fields []FieldFormat) {
+	for index, field := range fields {
+		title := fmt.Sprintf("Field %d", index)
+		titleColor.Println(title)
+
+		printFieldSize(field.Size)
+		printField("Position", formatHexValue(field.Position))
+		fmt.Println()
+	}
+}
+
+// PrintHeader WDB6 header
+func PrintHeader(header *Header) {
 	printField("RecordCount", formatDecValue(header.RecordCount))
 	printField("FieldCount", formatDecValue(header.FieldCount))
 	printField("RecordSize", formatDecValue(header.RecordSize))
@@ -53,7 +75,6 @@ func (header *Header) Print() {
 	printField("MaxID", formatDecValue(header.MaxID))
 	printField("Locale", formatHexValue(header.Locale))
 	printField("CopyTableSize", formatDecValue(header.CopyTableSize))
-	// printField("Flags", formatHexValue(header.Flags))
 	printFlags(header)
 	printField("IDIndex", formatDecValue(header.IDIndex))
 	printField("TotalFieldCount", formatDecValue(header.TotalFieldCount))

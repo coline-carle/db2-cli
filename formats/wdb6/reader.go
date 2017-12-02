@@ -2,11 +2,13 @@ package wdb6
 
 import (
 	"encoding/binary"
+	"fmt"
 	"io"
 )
 
 const wdb6Magic = "WDB6"
 const headerSize = 0x34
+const fieldFormatSize = 0x4
 
 type decoder struct {
 	r   io.Reader
@@ -19,7 +21,7 @@ type FormatError string
 func (e FormatError) Error() string { return "WDB6: invalid format: " + string(e) }
 
 // Decode a db2 file with WDB6 format
-func Decode(r io.Reader) (*Header, error) {
+func Decode(r io.Reader) (*Wdb6, error) {
 	d := &decoder{
 		r: r,
 	}
@@ -31,7 +33,47 @@ func Decode(r io.Reader) (*Header, error) {
 		return nil, err
 	}
 	header, err := d.readHeader()
-	return header, err
+	if err != nil {
+		return nil, err
+	}
+	fieldsFormat, err := d.readFieldsFormat(header)
+	if err != nil {
+		return nil, err
+	}
+	wdb6 := &Wdb6{
+		Header:       header,
+		FieldsFormat: fieldsFormat,
+	}
+
+	return wdb6, nil
+}
+
+func (d *decoder) readFieldsFormat(header *Header) (fieldFormat []FieldFormat, err error) {
+	dataLen := int(header.FieldCount) * fieldFormatSize
+	_, err = io.ReadFull(d.r, d.tmp[:dataLen])
+	if err != nil {
+		return []FieldFormat{}, err
+	}
+
+	b := readBuf(d.tmp[:dataLen])
+	fieldsFormat := make([]FieldFormat, header.FieldCount)
+
+	for i := 0; i < int(header.FieldCount); i++ {
+		size := uint(b.uint16())
+		if size > 32 {
+			return []FieldFormat{}, fmt.Errorf("field size > 32 bits non-emplemented yet")
+		}
+		size = (32 - size) / 8
+		position := uint(b.uint16())
+
+		fieldFormat := FieldFormat{
+			Size:     size,
+			Position: position,
+		}
+		fieldsFormat[i] = fieldFormat
+	}
+
+	return fieldsFormat, nil
 }
 
 func (d *decoder) readHeader() (header *Header, err error) {
