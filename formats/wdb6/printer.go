@@ -11,6 +11,7 @@ var (
 	fieldColor     = color.New()
 	noteColor      = color.New(color.FgYellow)
 	titleColor     = color.New(color.FgRed).Add(color.Bold)
+	chapterColor   = color.New(color.FgGreen).Add(color.Underline)
 )
 
 func formatDecValue(value uint) string {
@@ -53,18 +54,21 @@ func printFieldSize(size uint) {
 
 // PrintFieldsFormat print field formats
 func PrintFieldsFormat(fields []FieldFormat) {
+	chapterColor.Println("WDB6 fields format")
 	for index, field := range fields {
 		title := fmt.Sprintf("Field %d", index)
 		titleColor.Println(title)
 
 		printFieldSize(field.Size)
-		printField("Position", formatHexValue(field.Position))
+		hexPos := fmt.Sprintf("%#04x", field.Position)
+		printField("Position", hexPos)
 		fmt.Println()
 	}
 }
 
 // PrintHeader WDB6 header
 func PrintHeader(header *Header) {
+	chapterColor.Println("WDB6 Header")
 	printField("RecordCount", formatDecValue(header.RecordCount))
 	printField("FieldCount", formatDecValue(header.FieldCount))
 	printField("RecordSize", formatDecValue(header.RecordSize))

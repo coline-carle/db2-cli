@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/wow-sweetlie/db2-cli/formats/wdb6"
@@ -36,5 +37,9 @@ func header(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	wdb6.PrintHeader(db.Header)
+	if showFields {
+		fmt.Print("\n\n")
+		wdb6.PrintFieldsFormat(db.FieldsFormat)
+	}
 	return nil
 }
