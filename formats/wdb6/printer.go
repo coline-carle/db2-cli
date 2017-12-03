@@ -14,7 +14,7 @@ var (
 	fieldNameColor = color.New(color.FgCyan).Add(color.Bold)
 	fieldColor     = color.New()
 	noteColor      = color.New(color.FgYellow)
-	titleColor     = color.New(color.FgRed).Add(color.Bold)
+	titleColore    = color.New(color.FgRed).Add(color.Bold)
 	chapterColor   = color.New(color.FgGreen).Add(color.Underline)
 )
 

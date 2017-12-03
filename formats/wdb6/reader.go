@@ -9,7 +9,7 @@ import (
 )
 
 const wdb6Magic = "WDB6"
-const headerSize = 0x34
+const headerSize = 0x38
 
 type decoder struct {
 	r   io.Reader
@@ -129,11 +129,11 @@ func (d *decoder) readFieldsFormat(header *Header) (fieldFormat []FieldFormat, e
 }
 
 func (d *decoder) readHeader() (header *Header, err error) {
-	_, err = io.ReadFull(d.r, d.tmp[:headerSize])
+	_, err = io.ReadFull(d.r, d.tmp[:headerSize-len(wdb6Magic)])
 	if err != nil {
 		return nil, err
 	}
-	b := readBuf(d.tmp[:headerSize])
+	b := readBuf(d.tmp[:headerSize-len(wdb6Magic)])
 	h := &Header{
 		RecordCount:         int(b.uint32()),
 		FieldCount:          int(b.uint32()),
