@@ -1,5 +1,7 @@
 package wdb6
 
+import "fmt"
+
 // Wdb6 file format
 type Wdb6 struct {
 	Header       *Header
@@ -12,28 +14,30 @@ const (
 	flagHasNonInlineID  = 0x04
 )
 
+const fieldFormatSize = 0x4
+
 // Header of Wdb6 file
 type Header struct {
-	RecordCount         uint
-	FieldCount          uint
-	RecordSize          uint
-	StringTableSize     uint
-	TableHash           uint
-	LayoutHash          uint
-	MinID               uint
-	MaxID               uint
-	Locale              uint
-	CopyTableSize       uint
-	Flags               uint
-	IDIndex             uint
-	TotalFieldCount     uint
-	CommonDataTableSize uint
+	RecordCount         int
+	FieldCount          int
+	RecordSize          int
+	StringTableSize     int
+	TableHash           int
+	LayoutHash          int
+	MinID               int
+	MaxID               int
+	Locale              int
+	CopyTableSize       int
+	Flags               int
+	IDIndex             int
+	TotalFieldCount     int
+	CommonDataTableSize int
 }
 
 // FieldFormat description
 type FieldFormat struct {
-	Size     uint
-	Position uint
+	Size     int
+	Position int
 }
 
 // HasStringTable return true if the db2 file contain strings
@@ -54,4 +58,27 @@ func (h *Header) HasSecondaryKey() bool {
 // HasNonInlineID ...
 func (h *Header) HasNonInlineID() bool {
 	return (h.Flags & flagHasNonInlineID) == flagHasNonInlineID
+}
+
+// RecordBlockPosition ...
+func (h *Header) RecordBlockPosition() int {
+	return headerSize + h.fieldFormatBlockSize()
+}
+
+// RecordBlockSize ....
+func (h *Header) RecordBlockSize() int {
+	return h.RecordSize * h.RecordCount
+}
+
+// StringTablePosition ...
+func (h *Header) StringTablePosition() (int, error) {
+	if !h.HasStringTable() {
+		return 0, fmt.Errorf("the field has no string table")
+	}
+
+	return h.RecordBlockPosition() + h.RecordBlockSize(), nil
+}
+
+func (h *Header) fieldFormatBlockSize() int {
+	return h.FieldCount * fieldFormatSize
 }

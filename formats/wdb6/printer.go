@@ -18,11 +18,11 @@ var (
 	chapterColor   = color.New(color.FgGreen).Add(color.Underline)
 )
 
-func formatDecValue(value uint) string {
+func formatDecValue(value int) string {
 	return fmt.Sprintf("%d", value)
 }
 
-func formatHexValue(value uint) string {
+func formatHexValue(value int) string {
 	return fmt.Sprintf("%#08x", value)
 }
 
