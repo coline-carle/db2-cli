@@ -8,23 +8,18 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	showFields bool
-)
-
-// HeaderCmd for main
-var headerCmd = &cobra.Command{
-	Use:   "header [db2 file(s)]",
-	Short: "Print db2 file header",
+var fieldsCmd = &cobra.Command{
+	Use:   "fields [db2 file(s)]",
+	Short: "Print db2 fields format",
 	Args:  cobra.MinimumNArgs(1),
 }
 
 func init() {
-	headerCmd.RunE = header
+	fieldsCmd.RunE = fields
 }
 
 // Header display db2 header
-func header(cmd *cobra.Command, args []string) error {
+func fields(cmd *cobra.Command, args []string) error {
 	f, err := os.Open(args[0])
 	if err != nil {
 		return err
@@ -34,6 +29,6 @@ func header(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	wdb6.PrintHeader(db.Header)
+	wdb6.PrintFieldsFormat(db.FieldsFormat)
 	return nil
 }

@@ -16,6 +16,7 @@ var db2Cmd = &cobra.Command{
 
 func addCommands() {
 	db2Cmd.AddCommand(headerCmd)
+	db2Cmd.AddCommand(fieldsCmd)
 }
 
 // Execute adds all child commands to the root command

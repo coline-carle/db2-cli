@@ -2,8 +2,12 @@ package wdb6
 
 import (
 	"fmt"
-	"github.com/fatih/color"
+	"os"
+	"strconv"
 	"strings"
+
+	"github.com/fatih/color"
+	"github.com/olekukonko/tablewriter"
 )
 
 var (
@@ -47,23 +51,18 @@ func printFlags(h *Header) {
 	fmt.Printf("\n")
 }
 
-func printFieldSize(size uint) {
-	fieldNameColor.Print("Size: ")
-	fieldColor.Print(fmt.Sprintf("%d B\n", size))
-}
-
 // PrintFieldsFormat print field formats
 func PrintFieldsFormat(fields []FieldFormat) {
-	chapterColor.Println("WDB6 fields format")
+	table := tablewriter.NewWriter(os.Stdout)
+	table.SetHeader([]string{"Field", "Position", "Size"})
 	for index, field := range fields {
-		title := fmt.Sprintf("Field %d", index)
-		titleColor.Println(title)
-
-		printFieldSize(field.Size)
+		num := strconv.Itoa(index)
 		hexPos := fmt.Sprintf("%#04x", field.Position)
-		printField("Position", hexPos)
-		fmt.Println()
+		size := fmt.Sprintf("%d B\n", field.Size)
+		line := []string{num, hexPos, size}
+		table.Append(line)
 	}
+	table.Render()
 }
 
 // PrintHeader WDB6 header
