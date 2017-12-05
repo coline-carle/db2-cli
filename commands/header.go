@@ -20,20 +20,16 @@ var headerCmd = &cobra.Command{
 }
 
 func init() {
-	headerCmd.RunE = header
+	headerCmd.Run = header
 }
 
 // Header display db2 header
-func header(cmd *cobra.Command, args []string) error {
+func header(cmd *cobra.Command, args []string) {
 	f, err := os.Open(args[0])
-	if err != nil {
-		return err
-	}
+	checkErr(err)
 
-	db, err := wdb6.Decode(f)
-	if err != nil {
-		return err
-	}
-	wdb6.PrintHeader(db.Header)
-	return nil
+	header, err := wdb6.DecodeHeader(f)
+	checkErr(err)
+
+	wdb6.PrintHeader(header)
 }

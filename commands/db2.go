@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"log"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -18,6 +19,13 @@ func addCommands() {
 	db2Cmd.AddCommand(headerCmd)
 	db2Cmd.AddCommand(fieldsCmd)
 	db2Cmd.AddCommand(stringsCmd)
+	db2Cmd.AddCommand(csvExportCmd)
+}
+
+func checkErr(err error) {
+	if err != nil {
+		log.Fatal("ERROR:", err)
+	}
 }
 
 // Execute adds all child commands to the root command

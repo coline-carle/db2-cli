@@ -2,16 +2,17 @@ package wdb6
 
 import "fmt"
 
-// Wdb6 file format
-type Wdb6 struct {
-	Header       *Header
-	FieldsFormat []FieldFormat
-}
-
 const (
 	flagHasOffsetMap    = 0x01
 	flagHasSecondaryKey = 0x02
 	flagHasNonInlineID  = 0x04
+)
+
+var (
+	errNoStringTable     = fmt.Errorf("no string table present")
+	errNoOffsetMap       = fmt.Errorf("no offset map present")
+	errNoCopyTable       = fmt.Errorf("no copy table present")
+	errNoCommonDataTable = fmt.Errorf("no common data table present")
 )
 
 const fieldFormatSize = 0x4
@@ -62,7 +63,7 @@ func (h *Header) HasNonInlineID() bool {
 
 // RecordBlockPosition ...
 func (h *Header) RecordBlockPosition() int {
-	return headerSize + h.fieldFormatBlockSize()
+	return headerSize + h.FieldFormatBlockSize()
 }
 
 // RecordBlockSize ....
@@ -73,12 +74,24 @@ func (h *Header) RecordBlockSize() int {
 // StringTablePosition ...
 func (h *Header) StringTablePosition() (int, error) {
 	if !h.HasStringTable() {
-		return 0, fmt.Errorf("the field has no string table")
+		return 0, errNoStringTable
 	}
 
 	return h.RecordBlockPosition() + h.RecordBlockSize(), nil
 }
 
-func (h *Header) fieldFormatBlockSize() int {
+// OffsetMapPosition ...
+func (h *Header) OffsetMapPosition() (int, error) {
+	if !h.HasOffsetMap() {
+		return 0, errNoOffsetMap
+	}
+	position := h.RecordBlockPosition()
+	position += h.RecordBlockSize()
+	position += h.StringTableSize
+	return position, nil
+}
+
+// FieldFormatBlockSize ...
+func (h *Header) FieldFormatBlockSize() int {
 	return h.FieldCount * fieldFormatSize
 }

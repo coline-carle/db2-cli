@@ -6,14 +6,22 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+
+	"github.com/wow-sweetlie/db2-cli/formats/dblayout"
 )
 
 const wdb6Magic = "WDB6"
 const headerSize = 0x38
 
 type decoder struct {
-	r   io.Reader
-	tmp [256]byte
+	r            io.ReadSeeker
+	tmp          [256]byte
+	header       *Header
+	fieldsFormat []FieldFormat
+	strings      map[int]string
+	stringsPos   []int
+	table        *dblayout.Table
+	records      [][]interface{}
 }
 
 // A FormatError reports that the input is not a valid wdb6
@@ -21,63 +29,165 @@ type FormatError string
 
 func (e FormatError) Error() string { return "WDB6: invalid format: " + string(e) }
 
-// Decode a db2 file with WDB6 format
-func Decode(r io.Reader) (*Wdb6, error) {
+// DecodeStrings ...
+func DecodeStrings(r io.ReadSeeker) ([]int, map[int]string, error) {
+	var err error
+
 	d := &decoder{
 		r: r,
 	}
 
-	if err := d.checkMagic(); err != nil {
+	if _, err = d.doDecodeHeader(); err != nil {
+		return nil, nil, err
+	}
+
+	if err = d.readStrings(); err != nil {
+		return nil, nil, err
+	}
+
+	return d.stringsPos, d.strings, nil
+}
+
+// DecodeFieldsFormat read db2 meta informations
+func DecodeFieldsFormat(r io.ReadSeeker) ([]FieldFormat, error) {
+	var err error
+
+	d := &decoder{
+		r: r,
+	}
+	_, err = d.doDecodeHeader()
+
+	err = d.readFieldsFormat()
+
+	if err != nil {
+		return nil, err
+	}
+
+	return d.fieldsFormat, nil
+}
+
+// DecodeHeader ..
+func DecodeHeader(r io.ReadSeeker) (*Header, error) {
+	d := &decoder{
+		r: r,
+	}
+	return d.doDecodeHeader()
+}
+
+// Decode ...
+func Decode(r io.ReadSeeker, table dblayout.Table) ([][]interface{}, error) {
+	var err error
+
+	d := &decoder{
+		r:     r,
+		table: &table,
+	}
+
+	d.doDecodeHeader()
+
+	if err = d.readFieldsFormat(); err != nil {
+		return nil, err
+	}
+
+	if err = d.readStrings(); err != nil {
+		return nil, err
+	}
+
+	if err = d.readRecords(); err != nil {
+		return nil, err
+	}
+
+	return d.records, nil
+}
+
+func (d *decoder) doDecodeHeader() (h *Header, err error) {
+	if err = d.checkMagic(); err != nil {
 		if err == io.EOF {
-			err = io.ErrUnexpectedEOF
+			return nil, io.ErrUnexpectedEOF
 		}
 		return nil, err
 	}
-	header, err := d.readHeader()
-	if err != nil {
+
+	if err = d.readHeader(); err != nil {
 		return nil, err
-	}
-	fieldsFormat, err := d.readFieldsFormat(header)
-	if err != nil {
-		return nil, err
-	}
-	wdb6 := &Wdb6{
-		Header:       header,
-		FieldsFormat: fieldsFormat,
 	}
 
-	return wdb6, nil
+	return d.header, nil
+}
+
+func (d *decoder) decodeInt32(data []byte) interface{} {
+	v := binary.LittleEndian.Uint32(data[:4])
+	return int(v)
+}
+
+func (d *decoder) decodeString(data []byte) interface{} {
+	v := int(binary.LittleEndian.Uint32(data[:4]))
+	return d.strings[v]
+}
+
+func (d *decoder) readRecord(data []byte) (record []interface{}) {
+	record = make([]interface{}, d.header.FieldCount)
+	for i, fieldFormat := range d.fieldsFormat {
+		pos := fieldFormat.Position
+		switch d.table.Fields[i].Type {
+		case "int":
+			v := d.decodeInt32(data[pos:])
+			record[i] = v
+		case "string":
+			v := d.decodeString(data[pos:])
+			record[i] = v
+		}
+	}
+
+	return record
+}
+
+func (d *decoder) readRecords() (err error) {
+	recordBlockPosition := d.header.RecordBlockPosition()
+
+	_, err = d.r.Seek(int64(recordBlockPosition), io.SeekStart)
+	if err != nil {
+		return err
+	}
+
+	len := d.header.RecordSize
+	r := bufio.NewReader(d.r)
+	d.records = make([][]interface{}, d.header.RecordCount)
+	for i := 0; i < d.header.RecordCount; i++ {
+		_, err = io.ReadFull(r, d.tmp[:len])
+		d.records[i] = d.readRecord(d.tmp[:len])
+	}
+	return nil
 }
 
 // ReadStrings ...
-func ReadStrings(db2 *Wdb6, reader io.ReadSeeker) ([]int, map[int]string, error) {
-	tablePos, err := db2.Header.StringTablePosition()
+func (d *decoder) readStrings() error {
+	tablePos, err := d.header.StringTablePosition()
 	if err != nil {
-		return nil, nil, err
+		return err
 	}
-	_, err = reader.Seek(int64(tablePos), io.SeekStart)
+	_, err = d.r.Seek(int64(tablePos), io.SeekStart)
 	if err != nil {
 		if err == io.EOF {
-			return nil, nil, fmt.Errorf("unexpected EOF")
+			return io.ErrUnexpectedEOF
 		}
-		return nil, nil, err
+		return err
 	}
 
-	b := bufio.NewReader(reader)
+	b := bufio.NewReader(d.r)
 	pos := 0
 	str := new(bytes.Buffer)
-	strings := make(map[int]string)
-	var positions []int
+	d.strings = make(map[int]string)
 	var stringStartPos int
 	stringStarted := false
 
-	for pos < db2.Header.StringTableSize {
+	for pos < d.header.StringTableSize {
 		r, runeSize, err := b.ReadRune()
 		if err != nil {
 			if err == io.EOF {
-				return nil, nil, fmt.Errorf("unexpected EOF")
+				return io.ErrUnexpectedEOF
 			}
-			return nil, nil, err
+			return err
 		}
 
 		if r != 0x00 {
@@ -88,8 +198,8 @@ func ReadStrings(db2 *Wdb6, reader io.ReadSeeker) ([]int, map[int]string, error)
 			}
 		} else {
 			if stringStarted {
-				strings[stringStartPos] = str.String()
-				positions = append(positions, stringStartPos)
+				d.strings[stringStartPos] = str.String()
+				d.stringsPos = append(d.stringsPos, stringStartPos)
 				str = new(bytes.Buffer)
 				stringStarted = false
 			}
@@ -97,23 +207,23 @@ func ReadStrings(db2 *Wdb6, reader io.ReadSeeker) ([]int, map[int]string, error)
 		pos += runeSize
 	}
 
-	return positions, strings, nil
+	return nil
 }
 
-func (d *decoder) readFieldsFormat(header *Header) (fieldFormat []FieldFormat, err error) {
-	dataLen := header.FieldCount * fieldFormatSize
+func (d *decoder) readFieldsFormat() (err error) {
+	dataLen := d.header.FieldCount * fieldFormatSize
 	_, err = io.ReadFull(d.r, d.tmp[:dataLen])
 	if err != nil {
-		return []FieldFormat{}, err
+		return err
 	}
 
 	b := readBuf(d.tmp[:dataLen])
-	fieldsFormat := make([]FieldFormat, header.FieldCount)
+	d.fieldsFormat = make([]FieldFormat, d.header.FieldCount)
 
-	for i := 0; i < header.FieldCount; i++ {
+	for i := 0; i < d.header.FieldCount; i++ {
 		size := int(b.uint16())
 		if size > 32 {
-			return []FieldFormat{}, fmt.Errorf("field size > 32 bits non-emplemented yet")
+			return fmt.Errorf("field size > 32 bits non-emplemented yet")
 		}
 		size = (32 - size) / 8
 		position := int(b.uint16())
@@ -122,19 +232,19 @@ func (d *decoder) readFieldsFormat(header *Header) (fieldFormat []FieldFormat, e
 			Size:     size,
 			Position: position,
 		}
-		fieldsFormat[i] = fieldFormat
+		d.fieldsFormat[i] = fieldFormat
 	}
 
-	return fieldsFormat, nil
+	return nil
 }
 
-func (d *decoder) readHeader() (header *Header, err error) {
+func (d *decoder) readHeader() (err error) {
 	_, err = io.ReadFull(d.r, d.tmp[:headerSize-len(wdb6Magic)])
 	if err != nil {
-		return nil, err
+		return err
 	}
 	b := readBuf(d.tmp[:headerSize-len(wdb6Magic)])
-	h := &Header{
+	d.header = &Header{
 		RecordCount:         int(b.uint32()),
 		FieldCount:          int(b.uint32()),
 		RecordSize:          int(b.uint32()),
@@ -150,7 +260,7 @@ func (d *decoder) readHeader() (header *Header, err error) {
 		TotalFieldCount:     int(b.uint32()),
 		CommonDataTableSize: int(b.uint32()),
 	}
-	return h, nil
+	return nil
 }
 
 func (d *decoder) checkMagic() error {

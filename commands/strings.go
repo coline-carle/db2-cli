@@ -16,32 +16,18 @@ var stringsCmd = &cobra.Command{
 }
 
 func init() {
-	stringsCmd.RunE = strings
+	stringsCmd.Run = exportStrings
 }
 
-func strings(cmd *cobra.Command, args []string) error {
+func exportStrings(cmd *cobra.Command, args []string) {
 	f, err := os.Open(args[0])
-	if err != nil {
-		return err
-	}
+	checkErr(err)
 
-	db2, err := wdb6.Decode(f)
-	if err != nil {
-		return err
-	}
+	positions, strings, err := wdb6.DecodeStrings(f)
+	checkErr(err)
 
-	if !db2.Header.HasStringTable() {
-		return fmt.Errorf("the file has no string table")
-	}
-
-	positions, strings, err := wdb6.ReadStrings(db2, f)
-	if err != nil {
-		return err
-	}
 	for _, position := range positions {
 		fmt.Printf("%08x: ", position)
 		fmt.Println(strings[position])
 	}
-
-	return nil
 }

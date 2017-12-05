@@ -15,20 +15,16 @@ var fieldsCmd = &cobra.Command{
 }
 
 func init() {
-	fieldsCmd.RunE = fields
+	fieldsCmd.Run = fields
 }
 
 // Header display db2 header
-func fields(cmd *cobra.Command, args []string) error {
+func fields(cmd *cobra.Command, args []string) {
 	f, err := os.Open(args[0])
-	if err != nil {
-		return err
-	}
+	checkErr(err)
 
-	db, err := wdb6.Decode(f)
-	if err != nil {
-		return err
-	}
-	wdb6.PrintFieldsFormat(db.FieldsFormat)
-	return nil
+	fieldsFormat, err := wdb6.DecodeFieldsFormat(f)
+	checkErr(err)
+
+	wdb6.PrintFieldsFormat(fieldsFormat)
 }

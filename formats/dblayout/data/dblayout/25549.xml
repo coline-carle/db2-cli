@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<DBFilesClient>
+  <Table Name="Spell" Build="25549">
+    <Field Name="Name" Type="string" />
+    <Field Name="Name Subtext" Type="string" />
+    <Field Name="Description" Type="string" />
+    <Field Name="Tooltip" Type="string" />
+    <Field Name="SpellMiscID" Type="int" />
+    <Field Name="Id" Type="int" IsIndex="true" />
+    <!--    <Field Name="DescriptionVariablesID" Type="int" /> -->
+  </Table>
+</DBFilesClient>
